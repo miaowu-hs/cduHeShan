@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 对话历史</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Noto Sans SC', sans-serif;
+        }
+
+        body {
+            background-color: #f7f7f8;
+            color: #374151;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background-color: white;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: #4b5563;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .back-btn:hover {
+            color: #111827;
+        }
+
+        .chat-container {
+            flex: 1;
+            max-width: 900px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            max-height: calc(100vh - 200px);
+        }
+
+        .message {
+            display: flex;
+            gap: 20px;
+            padding: 20px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-weight: bold;
+        }
+
+        .user-avatar {
+            background-color: #e5e7eb;
+        }
+
+        .ai-avatar {
+            background-color: #4f46e5;
+            color: white;
+        }
+
+        .message-content {
+            flex: 1;
+            padding-top: 5px;
+        }
+
+        .message-role {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #111827;
+        }
+
+        .message-text {
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 8px;
+        }
+
+        .input-area {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            padding: 15px;
+            margin-top: auto;
+            position: sticky;
+            bottom: 0;
+        }
+
+        .prompt-input {
+            width: 100%;
+            min-height: 100px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 15px;
+            resize: vertical;
+        }
+
+        .prompt-input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .copy-btn {
+            background-color: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            color: #374151;
+        }
+
+        .copy-btn:hover {
+            background-color: #e5e7eb;
+        }
+
+        .regenerate-btn {
+            background-color: #4f46e5;
+            color: white;
+            border: none;
+        }
+
+        .regenerate-btn:hover {
+            background-color: #4338ca;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #6b7280;
+            margin: 20px 0;
+        }
+
+        .btn-gradient {
+            display: inline-block;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+        }
+
+        .btn-gradient:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(79, 172, 254, 0.4);
+            background: linear-gradient(135deg, #3a9bed 0%, #00d9e6 100%);
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(79, 70, 229, 0.2);
+            border-top-color: #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .error-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #fee2e2;
+            color: #b91c1c;
+            padding: 12px 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+        }
+
+        /* 新增：模型选择样式 */
+        .model-selection {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .model-option {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .model-option input[type="radio"] {
+            margin-right: 8px;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 50%;
+            outline: none;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .model-option input[type="radio"]:checked {
+            border-color: #4f46e5;
+        }
+
+        .model-option input[type="radio"]:checked::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 8px;
+            height: 8px;
+            background: #4f46e5;
+            border-radius: 50%;
+        }
+
+        .model-option label {
+            font-size: 14px;
+            color: #333;
+            cursor: pointer;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                padding: 15px;
+                max-height: calc(100vh - 180px);
+            }
+
+            .message {
+                gap: 15px;
+                padding: 15px 0;
+            }
+
+            .avatar {
+                width: 36px;
+                height: 36px;
+                font-size: 14px;
+            }
+
+            .model-selection {
+                gap: 15px;
+            }
+
+            footer {
+                text-align: center;
+                margin-top: 30px;
+                font-size: 14px;
+                color: #707472;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div class="logo">AI 对话历史</div>
+    <button class="back-btn" onclick="window.history.back()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        返回
+    </button>
+</div>
+
+<div class="chat-container" id="chatContainer">
+    <!-- 动态加载所有历史消息 -->
+    <div th:each="history : ${histories}">
+        <!-- 用户消息 -->
+        <div class="message">
+            <div class="avatar user-avatar">你</div>
+            <div class="message-content">
+                <div class="message-role">你</div>
+                <div class="message-text" th:text="${history.userInput}"></div>
+                <div class="message-time" th:text="${history.timestamp}"></div>
+            </div>
+        </div>
+
+        <!-- AI回复 -->
+        <div class="message">
+            <div class="avatar ai-avatar">AI</div>
+            <div class="message-content">
+                <div class="message-role">AI助手</div>
+                <div class="message-text" th:utext="${history.aiResponse}"></div>
+                <div class="message-time" th:text="${history.timestamp}"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<a href="/api/chat/clear-context" class="btn-gradient">
+    新对话
+</a>
+
+<div class="input-area">
+    <form id="chatForm" action="/api/chat/send" method="post" target="hiddenFrame">
+        <!-- 新增：模型选择区域 -->
+        <div class="model-selection">
+            <div class="model-option">
+                <input type="radio" id="model-deepseek" name="model" value="deepseek" checked>
+                <label for="model-deepseek">DeepSeek</label>
+            </div>
+            <div class="model-option">
+                <input type="radio" id="model-doubao" name="model" value="doubao">
+                <label for="model-doubao">豆包</label>
+            </div>
+        </div>
+
+        <textarea class="prompt-input" name="prompt" placeholder="继续与AI对话..." required></textarea>
+        <div class="action-buttons">
+            <button type="button" class="action-btn copy-btn" onclick="copyResponse()">复制最新回复</button>
+            <button type="submit" class="action-btn regenerate-btn" id="submitBtn">发送</button>
+        </div>
+    </form>
+</div>
+
+<!-- 隐藏的iframe用于表单提交 -->
+<iframe name="hiddenFrame" style="display:none;"></iframe>
+
+<!-- 错误提示容器 -->
+<div id="errorContainer" class="error-toast" style="display:none;">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>
+    <span id="errorMessage"></span>
+</div>
+
+<script>
+    // 复制最新回复
+    function copyResponse() {
+        const aiMessages = document.querySelectorAll('.message-text[th\\:utext]');
+        if (aiMessages.length > 0) {
+            const lastAiMessage = aiMessages[aiMessages.length - 1];
+            navigator.clipboard.writeText(lastAiMessage.textContent).then(() => {
+                const copyBtn = document.querySelector('.copy-btn');
+                copyBtn.textContent = '已复制!';
+                setTimeout(() => {
+                    copyBtn.textContent = '复制最新回复';
+                }, 2000);
+            });
+        }
+    }
+
+    // 显示加载状态
+    function showLoading() {
+        const loadingDiv = document.createElement('div');
+        loadingDiv.classList.add('loading');
+        loadingDiv.id = 'loadingIndicator';
+        loadingDiv.innerHTML = `
+            <div class="loading-spinner"></div>
+            <span>AI正在思考...</span>
+        `;
+        document.getElementById('chatContainer').appendChild(loadingDiv);
+
+        // 禁用提交按钮
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('submitBtn').textContent = '生成中...';
+
+        // 滚动到底部
+        document.getElementById('chatContainer').scrollTop = document.getElementById('chatContainer').scrollHeight;
+    }
+
+    // 隐藏加载状态
+    function hideLoading() {
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        if (loadingIndicator) {
+            loadingIndicator.remove();
+        }
+
+        // 重新启用提交按钮
+        document.getElementById('submitBtn').disabled = false;
+        document.getElementById('submitBtn').textContent = '发送';
+    }
+
+    // 显示错误提示
+    function showError(message) {
+        const errorContainer = document.getElementById('errorContainer');
+        const errorMessage = document.getElementById('errorMessage');
+
+        errorMessage.textContent = message;
+        errorContainer.style.display = 'flex';
+
+        // 3秒后自动隐藏
+        setTimeout(() => {
+            errorContainer.style.display = 'none';
+        }, 3000);
+    }
+
+    // 监听iframe加载完成事件
+    window.addEventListener('load', function() {
+        const hiddenFrame = document.querySelector('iframe[name="hiddenFrame"]');
+
+        hiddenFrame.onload = function() {
+            // 表单提交完成后，获取最新聊天记录
+            fetch('/api/chat/main/dialog')
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newContainer = doc.getElementById('chatContainer');
+
+                    if (newContainer) {
+                        // 更新聊天内容
+                        document.getElementById('chatContainer').innerHTML = newContainer.innerHTML;
+
+                        // 滚动到底部
+                        const container = document.getElementById('chatContainer');
+                        container.scrollTop = container.scrollHeight;
+                    }
+
+                    // 隐藏加载状态
+                    hideLoading();
+                })
+                .catch(error => {
+                    showError('加载对话失败: ' + error.message);
+                    hideLoading();
+                });
+        };
+    });
+
+    // 表单提交时显示加载状态
+    document.getElementById('chatForm').addEventListener('submit', function() {
+        showLoading();
+    });
+
+    // 页面加载后自动滚动到底部
+    document.addEventListener('DOMContentLoaded', function() {
+        const container = document.getElementById('chatContainer');
+        container.scrollTop = container.scrollHeight;
+
+        // 尝试从localStorage获取上次选择的模型
+        const selectedModel = localStorage.getItem('selectedModel') || 'deepseek';
+        document.getElementById('model-' + selectedModel).checked = true;
+    });
+
+    // 保存选择的模型到localStorage
+    document.querySelectorAll('input[name="model"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            localStorage.setItem('selectedModel', this.value);
+        });
+    });
+</script>
+<footer>
+    @cdu 何山
+</footer>
+</body>
+</html>
